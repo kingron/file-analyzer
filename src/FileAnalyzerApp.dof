@@ -66,7 +66,7 @@ AutoIncBuild=1
 MajorVer=1
 MinorVer=1
 Release=5
-Build=50
+Build=51
 Debug=0
 PreRelease=0
 Special=0
@@ -77,13 +77,13 @@ CodePage=936
 [Version Info Keys]
 CompanyName=伴水工作室
 FileDescription=jihu.wang@gmail.com
-FileVersion=1.1.5.50
+FileVersion=1.1.5.51
 InternalName=伴水之剑-文件剑
 LegalCopyright=伴水工作室
 LegalTrademarks=Zswang.FileAnalyzer
 OriginalFilename=File Analyzer<�$>
 ProductName=文件分析器
-ProductVersion=1.01.009
+ProductVersion=1.01.010
 Comments=http://weibo.com/zswang
 [Excluded Packages]
 d:\program files\borland\delphi6\Bin\dclnet60.bpl=Borland Internet Components

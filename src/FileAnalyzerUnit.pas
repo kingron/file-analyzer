@@ -942,8 +942,6 @@ begin
   FSearching := not FSearching;
   DoChange;
   if not FSearching then Exit;
-  if LabelHttp.Caption <>
-    DecodeString('aHR0cDovL2Jsb2cuY3Nkbi5uZXQvenN3YW5n') then Exit;
   if FSearchText = '' then Exit;
   vComboBoxSearch := nil;
   for I := 0 to PageControlSearch.ActivePage.ControlCount - 1 do
