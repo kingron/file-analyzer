@@ -98,7 +98,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -117,7 +117,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -137,7 +137,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Hint = 'GUID'
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -156,7 +156,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -183,7 +183,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -202,7 +202,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -221,7 +221,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -240,7 +240,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -259,7 +259,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -278,7 +278,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -298,7 +298,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Hint = 'GUID'
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown
@@ -317,7 +317,7 @@ object FormFileAnalyzer: TFormFileAnalyzer
           Height = 21
           AutoComplete = False
           Anchors = [akLeft, akTop, akRight]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnChange = ComboBoxChange
           OnKeyDown = ComboBoxSelectKeyDown

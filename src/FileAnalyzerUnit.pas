@@ -853,6 +853,27 @@ procedure TFormFileAnalyzer.ActionSearchExecute(Sender: TObject);
     except
       Exit;
     end;
+    if FSearchText = '' then
+    begin
+      I := 0;
+      vLength := 32;
+      with ListViewFileList.Items.Add do
+      begin
+        New(vItemInfo);
+        vItemInfo^.rDisplayStyle := dsPascal;
+        vItemInfo^.rAddress := I;
+        vItemInfo^.rSize := vLength;
+        Data := vItemInfo;
+        Caption := ExtractFileName(mFileName);
+        SubItems.Add(ExtractFileDir(mFileName));
+        SubItems.Add(Format('%d', [I]));
+        SubItems.Add(
+          StringToDisplay(Stream_Read(vFileStream, I, vLength)));
+        SubItems.Add(SubItems[SubItems.Count - 1]);
+      end;
+      vFileStream.Free;
+      Exit;
+    end;
     if mMark then
     begin
       vLength := Length(HexToStr(StringReplace(ComboBoxMark.Text, '%', '0',
@@ -942,7 +963,17 @@ begin
   FSearching := not FSearching;
   DoChange;
   if not FSearching then Exit;
-  if FSearchText = '' then Exit;
+  with ComboBoxFilter do if Text <> '' then
+  begin
+    I := Items.IndexOf(Text);
+    if I < 0 then
+      Items.Insert(0, Text)
+    else begin
+      Items[I] := Text;
+      Items.Move(I, 0);
+      ItemIndex := 0;
+    end;
+  end;
   vComboBoxSearch := nil;
   for I := 0 to PageControlSearch.ActivePage.ControlCount - 1 do
     if PageControlSearch.ActivePage.Controls[I] is TComboBox then
@@ -976,17 +1007,6 @@ begin
     end;
     ItemIndex := 0;
   end;
-  with ComboBoxFilter do if Text <> '' then
-  begin
-    I := Items.IndexOf(Text);
-    if I < 0 then
-      Items.Insert(0, Text)
-    else begin
-      Items[I] := Text;
-      Items.Move(I, 0);
-      ItemIndex := 0;
-    end;
-  end;
 
   vOldItemCount := ListViewFileList.Items.Count;
   FFilterText := ComboBoxFilter.Text;
@@ -1003,7 +1023,7 @@ end;
 procedure TFormFileAnalyzer.DoChange;
 begin
   ActionInsert.Enabled := FileExists(ComboBoxSelect.Text);
-  ActionSearch.Enabled := FSearchText <> '';
+  //ActionSearch.Enabled := FSearchText <> '';
   ActionClear.Enabled := ListViewFileList.Items.Count > 0;
   ActionSelectAll.Enabled := ListViewFileList.Items.Count > 0;
   ActionSelectNot.Enabled := ListViewFileList.Items.Count > 0;
