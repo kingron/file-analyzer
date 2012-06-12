@@ -381,6 +381,7 @@ type
     procedure ListViewFileListContextPopup(Sender: TObject; MousePos: TPoint;
       var Handled: Boolean);
     procedure ActionPopupSystemExecute(Sender: TObject);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
   private
     { Private declarations }
     FMouseDown: Boolean;
@@ -855,6 +856,15 @@ begin
     vItemInfo := ListViewFileList.Items[I].Data;
     ListViewFileList.Items[I].Data := nil;
     Dispose(vItemInfo);
+  end;
+end;
+
+procedure TFormFileAnalyzer.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if (key = #27) and FSearching then
+  begin
+    ToolButtonSearch.Click;
+    key := #0;
   end;
 end;
 
