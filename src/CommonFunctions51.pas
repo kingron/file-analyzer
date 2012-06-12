@@ -151,6 +151,8 @@ function ExePath: string; // 返回当前应用程序的路径
 function SysPath: string; // 返回系统所在的路径
 function TempPath: string; // 返回临时路径
 function WinPath: string; // 返回Windows所在的路径
+function DisplayContextMenu(const Handle: HWND; const FileName: string; Pos: TPoint): Boolean;
+procedure OpenfolderAndSelect(fname:string);
 
 function File_SearchString( // 在文件中搜索字符串
   mFileName: string; // 文件名
@@ -697,7 +699,7 @@ function FileTimeToDateTime( // 将文件时间处理为TDateTime
 implementation
 
 uses TypInfo, Types, Math, MMSystem, TlHelp32, PsAPI, Printers, ShlObj, Clipbrd,
-  StringFunctions51{$IFDEF USES_COMPRESSION}, ZLib20{$ENDIF};
+  ActiveX, StringFunctions51{$IFDEF USES_COMPRESSION}, ZLib20{$ENDIF};
 
 function FileTimeToDateTime( // 将文件时间处理为TDateTime
   mFileTime: TFileTime // 文件时间
@@ -3205,6 +3207,257 @@ begin
   GetWindowsDirectory(vBuffer, MAX_PATH);
   Result := IncludeTrailingPathDelimiter(vBuffer);
 end; { WinPath }
+
+function PidlFree(var IdList: PItemIdList): Boolean;
+var
+  Malloc: IMalloc;
+begin
+  Result := False;
+  if IdList = nil then
+    Result := True
+  else
+  begin
+    if Succeeded(SHGetMalloc(Malloc)) and (Malloc.DidAlloc(IdList) > 0) then
+    begin
+      Malloc.Free(IdList);
+      IdList := nil;
+      Result := True;
+    end;
+  end;
+end;
+
+type
+  TUnicodePath = array[0..MAX_PATH-1] of WideChar;
+  
+function DriveToPidlBind(const DriveName: string; out Folder: IShellFolder): PItemIdList;
+var
+  Attr: ULONG;
+  Eaten: ULONG;
+  DesktopFolder: IShellFolder;
+  Drives: PItemIdList;
+  Path: TUnicodePath;
+begin
+  Result := nil;
+  if Succeeded(SHGetDesktopFolder(DesktopFolder)) then
+  begin
+    if Succeeded(SHGetSpecialFolderLocation(0, CSIDL_DRIVES, Drives)) then
+    begin
+      if Succeeded(DesktopFolder.BindToObject(Drives, nil, IID_IShellFolder,
+        Pointer(Folder))) then
+      begin
+        MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED,
+          PChar(IncludeTrailingBackslash(DriveName)), -1, Path, MAX_PATH);
+        if FAILED(Folder.ParseDisplayName(0, nil, Path, Eaten, Result,
+          Attr)) then
+        begin
+          Folder := nil;
+          // Failure probably means that this is not a drive. However, do not
+          // call PathToPidlBind() because it may cause infinite recursion.
+        end;
+      end;
+    end;
+    PidlFree(Drives);
+  end;
+end;
+ 
+function PathToPidlBind(const FileName: string; out Folder: IShellFolder): PItemIdList;
+var
+  Attr, Eaten: ULONG;
+  PathIdList: PItemIdList;
+  DesktopFolder: IShellFolder;
+  Path, ItemName: TUnicodePath;
+begin
+  Result := nil;
+  MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, PChar(ExtractFilePath(FileName)), -1, Path, MAX_PATH);
+  MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, PChar(ExtractFileName(FileName)), -1, ItemName, MAX_PATH);
+  if Succeeded(SHGetDesktopFolder(DesktopFolder)) then
+  begin
+    if Succeeded(DesktopFolder.ParseDisplayName(0, nil, Path, Eaten, PathIdList,
+      Attr)) then
+    begin
+      if Succeeded(DesktopFolder.BindToObject(PathIdList, nil, IID_IShellFolder,
+        Pointer(Folder))) then
+      begin
+        if FAILED(Folder.ParseDisplayName(0, nil, ItemName, Eaten, Result,
+          Attr)) then
+        begin
+          Folder := nil;
+          Result := DriveToPidlBind(FileName, Folder);
+        end;
+      end;
+      PidlFree(PathIdList);
+    end
+    else
+      Result := DriveToPidlBind(FileName, Folder);
+  end;
+end;
+ 
+function MenuCallback(Wnd: HWND; Msg: UINT; wParam: WPARAM; lParam: LPARAM): LRESULT; stdcall;
+var
+  ContextMenu2: IContextMenu2;
+begin
+  case Msg of
+    WM_CREATE:
+      begin
+        ContextMenu2 := IContextMenu2(PCreateStruct(lParam).lpCreateParams);
+        SetWindowLong(Wnd, GWL_USERDATA, Longint(ContextMenu2));
+        Result := DefWindowProc(Wnd, Msg, wParam, lParam);
+      end;
+    WM_INITMENUPOPUP:
+      begin
+        ContextMenu2 := IContextMenu2(GetWindowLong(Wnd, GWL_USERDATA));
+        ContextMenu2.HandleMenuMsg(Msg, wParam, lParam);
+        Result := 0;
+      end;
+    WM_DRAWITEM, WM_MEASUREITEM:
+      begin
+        ContextMenu2 := IContextMenu2(GetWindowLong(Wnd, GWL_USERDATA));
+        ContextMenu2.HandleMenuMsg(Msg, wParam, lParam);
+        Result := 1;
+      end;
+  else
+    Result := DefWindowProc(Wnd, Msg, wParam, lParam);
+  end;
+end;
+ 
+function CreateMenuCallbackWnd(const ContextMenu: IContextMenu2): HWND;
+const
+  IcmCallbackWnd = 'ICMCALLBACKWND';
+var
+  WndClass: TWndClass;
+begin
+  FillChar(WndClass, SizeOf(WndClass), #0);
+  WndClass.lpszClassName := PChar(IcmCallbackWnd);
+  WndClass.lpfnWndProc := @MenuCallback;
+  WndClass.hInstance := HInstance;
+  Windows.RegisterClass(WndClass);
+  Result := CreateWindow(IcmCallbackWnd, IcmCallbackWnd, WS_POPUPWINDOW, 0,
+    0, 0, 0, 0, 0, HInstance, Pointer(ContextMenu));
+end;
+ 
+function DisplayContextMenuPidl(const Handle: HWND; const Folder: IShellFolder;
+  Item: PItemIdList; Pos: TPoint): Boolean;
+var
+  Cmd: Cardinal;
+  ContextMenu: IContextMenu;
+  ContextMenu2: IContextMenu2;
+  Menu: HMENU;
+  CommandInfo: TCMInvokeCommandInfo;
+  CallbackWindow: HWND;
+begin
+  Result := False;
+  if (Item = nil) or (Folder = nil) then
+    Exit;
+  Folder.GetUIObjectOf(Handle, 1, Item, IID_IContextMenu, nil,
+    Pointer(ContextMenu));
+  if ContextMenu <> nil then
+  begin
+    Menu := CreatePopupMenu;
+    if Menu <> 0 then
+    begin
+      if Succeeded(ContextMenu.QueryContextMenu(Menu, 0, 1, $7FFF, CMF_EXPLORE)) then
+      begin
+        CallbackWindow := 0;
+        if Succeeded(ContextMenu.QueryInterface(IContextMenu2, ContextMenu2)) then
+        begin
+          CallbackWindow := CreateMenuCallbackWnd(ContextMenu2);
+        end;
+        ClientToScreen(Handle, Pos);
+        Cmd := Cardinal(TrackPopupMenu(Menu, TPM_LEFTALIGN or TPM_LEFTBUTTON or
+          TPM_RIGHTBUTTON or TPM_RETURNCMD, Pos.X, Pos.Y, 0, CallbackWindow, nil));
+        if Cmd <> 0 then
+        begin
+          FillChar(CommandInfo, SizeOf(CommandInfo), #0);
+          CommandInfo.cbSize := SizeOf(TCMInvokeCommandInfo);
+          CommandInfo.hwnd := Handle;
+          CommandInfo.lpVerb := MakeIntResource(Cmd - 1);
+          CommandInfo.nShow := SW_SHOWNORMAL;
+          Result := Succeeded(ContextMenu.InvokeCommand(CommandInfo));
+        end;
+        if CallbackWindow <> 0 then
+          DestroyWindow(CallbackWindow);
+      end;
+      DestroyMenu(Menu);
+    end;
+  end;
+end;
+
+function DisplayContextMenu(const Handle: HWND; const FileName: string; Pos: TPoint): Boolean;
+{
+  完美显示外壳关联菜单，一切信息都在，和资源管理器一样
+}
+var
+  ItemIdList: PItemIdList;
+  Folder: IShellFolder;
+begin
+  Result := False;
+  ItemIdList := PathToPidlBind(FileName, Folder);
+  if ItemIdList <> nil then
+  begin
+    Result := DisplayContextMenuPidl(Handle, Folder, ItemIdList, Pos);
+    PidlFree(ItemIdList);
+  end;
+end;
+
+function GetItemIdListFromPath (path:widestring; var lpItemIdList:PItemIdList):boolean;
+ var
+pShellFolder:IShellFolder;
+hr:HRESULT;
+chused:cardinal;
+attr:cardinal;
+begin
+result:=False;
+pShellFolder:=nil;
+   // 获得接口
+   if SHGetDesktopFolder(pShellFolder)<>NOERROR then exit;
+   // 将路径转换为 ITEMIDLIST
+   hr:=pShellFolder.ParseDisplayName(0,nil{0},pwidechar(path),chused,lpitemidlist,attr);
+   if FAILED(hr) then begin
+      lpItemIdList:=nil;
+      exit;
+   end;
+   result:=true;
+end;
+
+//函数 使用资源管理器打开一个文件夹并选中指定文件,如果文件夹已经被打开就直接选中
+procedure OpenfolderAndSelect(fname:string);
+   procedure old_locate(fname:string);
+   begin
+    ShellExecute(0,'explore',PChar('/n,/select,' + fname),'','',SW_SHOWNORMAL);
+   end;
+type
+  SHOpenFolderAndSelectItems=function(pidlFolder:PItemIdList; cidl:cardinal; apidl:PItemIdList; dwflags:dword): HRESULT; stdcall;
+var
+ShOp:SHOpenFolderAndSelectItems;
+idlist:PItemIdList;
+hr:hresult;
+dllHandle:Thandle;
+begin
+  dllHandle:=SafeLoadLibrary('shell32.dll');
+  if dllHandle=0 then begin
+   old_locate(fname);
+   exit;
+  end;
+  ShOp:=GetProcAddress(dllHandle,'SHOpenFolderAndSelectItems');
+  if @ShOp=nil then begin
+   FreeLibrary(dllHandle);
+   old_locate(fname);
+   exit;
+  end;
+ CoInitialize(nil);
+ GetItemIdListFromPath(fname,idlist);
+ try
+  hr:=shop(idlist,0,nil,0);
+ except
+  old_locate(fname);
+  FreeLibrary(dllHandle);
+  CoUnInitialize;
+  exit;
+ end;
+ if FAILED(hr) then old_locate(fname);
+  FreeLibrary(dllHandle);
+  CoUnInitialize;
+end;
 
 function GetFileVersionInfomation( // 读取文件的版本信息
   mFileName: string; // 目标文件名

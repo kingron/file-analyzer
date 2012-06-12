@@ -292,6 +292,20 @@ type
     MenuItemBlogA: TMenuItem;
     ActionLiveUpdate: TAction;
     MenuItemLiveUpdate: TMenuItem;
+    N1: TMenuItem;
+    ActionSysMenu: TAction;
+    ActionDoubleExplorer: TAction;
+    N2: TMenuItem;
+    ActionCopyPathName: TAction;
+    N3: TMenuItem;
+    N4: TMenuItem;
+    N5: TMenuItem;
+    N6: TMenuItem;
+    N7: TMenuItem;
+    ActionPopupSystem: TAction;
+    ActionPopupInternal: TAction;
+    N8: TMenuItem;
+    N9: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure ImageDragMouseDown(Sender: TObject; Button: TMouseButton;
       Shift: TShiftState; X, Y: Integer);
@@ -363,9 +377,14 @@ type
     procedure ActionGetNewValueExecute(Sender: TObject);
     procedure ActionBlogExecute(Sender: TObject);
     procedure ActionLiveUpdateExecute(Sender: TObject);
+    procedure ActionSysMenuExecute(Sender: TObject);
+    procedure ListViewFileListContextPopup(Sender: TObject; MousePos: TPoint;
+      var Handled: Boolean);
+    procedure ActionPopupSystemExecute(Sender: TObject);
   private
     { Private declarations }
     FMouseDown: Boolean;
+    FContextMenuFunction: Integer;
     FProcessId: THandle;
     FWindowHandle: THandle;
     FChanging: Boolean;
@@ -433,7 +452,7 @@ LoadCursorFromFile(PChar(ExtractFilePath(ParamStr(0)) + 'FindWindow2.cur'));//*)
   LabelHttp.Font.Style := [fsUnderline];
 
   Application.OnHint := ApplicationHint;
-  Application.Title := vModuleVersionInfomation.rProductName + '-' +
+  Application.Title := vModuleVersionInfomation.rProductName + ' - ' +
     vModuleVersionInfomation.rProductVersion;
   Application.HelpFile := 'FileAnalyzerApp.hlp';
   Caption := Application.Title;
@@ -489,6 +508,7 @@ LoadCursorFromFile(PChar(ExtractFilePath(ParamStr(0)) + 'FindWindow2.cur'));//*)
       ReadInteger('Fields', 'CopyStyle', PopupMenuCopy.Tag);
     PopupMenuList.Tag :=
       ReadInteger('Fields', 'DoubleStyle', PopupMenuList.Tag);
+    FContextMenuFunction := ReadInteger('Fields', 'ContextMenu', 1);
   finally
     Free;
   end;
@@ -557,15 +577,24 @@ LoadCursorFromFile(PChar(ExtractFilePath(ParamStr(0)) + 'FindWindow2.cur'));//*)
     2: ActionCopyNew.Checked := True;
     3: ActionCopyOld.Checked := True;
     4: ActionCopyAddress.Checked := True;
-  else ActionCopyFileName.Checked := True;
+    5: ActionCopyFileName.Checked := True;
+    6: ActionCopyPathName.Checked := True;
+  else
+    ActionCopyPathName.Checked := True;
   end;
 
   case PopupMenuList.Tag of
     1: ActionDoubleGet.Checked := True;
     2: ActionDoubleHex.Checked := True;
-  else ActionDoubleDisplay.Checked := True;
+    3: ActionDoubleDisplay.Checked := True;
+  else ActionDoubleExplorer.Checked := True;
   end;
 
+  case FContextMenuFunction of
+    1: ActionPopupSystem.Checked := True;
+    2: ActionPopupInternal.Checked := True;
+  else  ActionPopupSystem.Checked := True;
+  end;
   ListViewHeaderImages(ListViewFileList, ImageListSort);
   DoChange;
 end;
@@ -817,6 +846,7 @@ begin
     WriteInteger('Fields', 'LengthByte', PopupMenuLength.Tag);
     WriteInteger('Fields', 'CopyStyle', PopupMenuCopy.Tag);
     WriteInteger('Fields', 'DoubleStyle', PopupMenuList.Tag);
+    WriteInteger('Fields', 'ContextMenu', FContextMenuFunction);
   finally
     Free;
   end;
@@ -851,27 +881,6 @@ procedure TFormFileAnalyzer.ActionSearchExecute(Sender: TObject);
       if Integer(vFileHandle) <= 0 then Exit;
       vFileStream := TFileStream.Create(vFileHandle);
     except
-      Exit;
-    end;
-    if FSearchText = '' then
-    begin
-      I := 0;
-      vLength := 32;
-      with ListViewFileList.Items.Add do
-      begin
-        New(vItemInfo);
-        vItemInfo^.rDisplayStyle := dsPascal;
-        vItemInfo^.rAddress := I;
-        vItemInfo^.rSize := vLength;
-        Data := vItemInfo;
-        Caption := ExtractFileName(mFileName);
-        SubItems.Add(ExtractFileDir(mFileName));
-        SubItems.Add(Format('%d', [I]));
-        SubItems.Add(
-          StringToDisplay(Stream_Read(vFileStream, I, vLength)));
-        SubItems.Add(SubItems[SubItems.Count - 1]);
-      end;
-      vFileStream.Free;
       Exit;
     end;
     if mMark then
@@ -963,17 +972,7 @@ begin
   FSearching := not FSearching;
   DoChange;
   if not FSearching then Exit;
-  with ComboBoxFilter do if Text <> '' then
-  begin
-    I := Items.IndexOf(Text);
-    if I < 0 then
-      Items.Insert(0, Text)
-    else begin
-      Items[I] := Text;
-      Items.Move(I, 0);
-      ItemIndex := 0;
-    end;
-  end;
+  if FSearchText = '' then Exit;
   vComboBoxSearch := nil;
   for I := 0 to PageControlSearch.ActivePage.ControlCount - 1 do
     if PageControlSearch.ActivePage.Controls[I] is TComboBox then
@@ -1007,6 +1006,17 @@ begin
     end;
     ItemIndex := 0;
   end;
+  with ComboBoxFilter do if Text <> '' then
+  begin
+    I := Items.IndexOf(Text);
+    if I < 0 then
+      Items.Insert(0, Text)
+    else begin
+      Items[I] := Text;
+      Items.Move(I, 0);
+      ItemIndex := 0;
+    end;
+  end;
 
   vOldItemCount := ListViewFileList.Items.Count;
   FFilterText := ComboBoxFilter.Text;
@@ -1023,7 +1033,7 @@ end;
 procedure TFormFileAnalyzer.DoChange;
 begin
   ActionInsert.Enabled := FileExists(ComboBoxSelect.Text);
-  //ActionSearch.Enabled := FSearchText <> '';
+  ActionSearch.Enabled := FSearchText <> '';
   ActionClear.Enabled := ListViewFileList.Items.Count > 0;
   ActionSelectAll.Enabled := ListViewFileList.Items.Count > 0;
   ActionSelectNot.Enabled := ListViewFileList.Items.Count > 0;
@@ -1061,8 +1071,8 @@ begin
     ActionSearch.Caption := '搜索(&S)';
     ActionSearch.Hint := '搜索';
   end;
-  StatusBarOne.Panels[0].Text := Format('ItemCount:%d', [ListViewFileList.Items.Count]);
-  StatusBarOne.Panels[1].Text := Format('DataSize:%d', [Length(FSearchText)]);
+  StatusBarOne.Panels[0].Text := Format('总数：%d', [ListViewFileList.Items.Count]);
+  StatusBarOne.Panels[1].Text := Format('数据大小：%d', [Length(FSearchText)]);
 end;
 
 procedure TFormFileAnalyzer.ActionCopyNewExecute(Sender: TObject);
@@ -1093,6 +1103,8 @@ begin
           S := S + #13#10 + SubItems[1]
         else if ActionCopyFileName.Checked then
           S := S + #13#10 + Caption
+        else if ActionCopyPathName.Checked then
+          S := S + #13#10 + SubItems[0] + '\' + Caption
       end;
   Delete(S, 1, 2);
   Clipboard.AsText := S;
@@ -1144,6 +1156,16 @@ begin
   if TryStrToFloat(A, vDataA) and TryStrToFloat(B, vDataB) then
     Compare := Trunc(I * vDataA - I * vDataB)
   else Compare := CompareText(A, B) * I;
+end;
+
+procedure TFormFileAnalyzer.ListViewFileListContextPopup(Sender: TObject;
+  MousePos: TPoint; var Handled: Boolean);
+begin
+  if ActionPopupSystem.Checked then
+  begin
+    ActionSysMenu.Execute;
+    Handled := True;
+  end;
 end;
 
 procedure TFormFileAnalyzer.ListViewFileListCustomDrawItem(
@@ -1587,6 +1609,13 @@ begin
   end;
 end;
 
+procedure TFormFileAnalyzer.ActionSysMenuExecute(Sender: TObject);
+begin
+  if ListViewFileList.Selected = nil then Exit;
+  with ListViewFileList.Selected do
+    DisplayContextMenu(Handle, IncludeTrailingPathDelimiter(SubItems[0]) + Caption, ScreenToClient(Mouse.CursorPos));
+end;
+
 procedure TFormFileAnalyzer.DropFileTargetOneDrop(Sender: TObject;
   ShiftState: TShiftState; APoint: TPoint; var Effect: Integer);
 begin
@@ -1705,7 +1734,9 @@ begin
   else if ActionDoubleHex.Checked then
     ActionHexEditor.Execute
   else if ActionDoubleDisplay.Checked then
-    ActionHex.Execute;
+    ActionHex.Execute
+  else if ActionDoubleExplorer.Checked then
+    ActionOpenDir.Execute;
 end;
 
 procedure TFormFileAnalyzer.ActionCloseExecute(Sender: TObject);
@@ -1725,7 +1756,13 @@ begin
     DirectoryExists(ComboBoxSelect.Text) then
     vFileName := ComboBoxSelect.Text
   else Exit;
-  WinExec(PChar(Format('explorer "%s",/n,/select', [vFileName])), SW_SHOW);
+  OpenfolderAndSelect(vFileName);
+end;
+
+procedure TFormFileAnalyzer.ActionPopupSystemExecute(Sender: TObject);
+begin
+  FContextMenuFunction := (Sender as TComponent).Tag;
+  (Sender as TAction).Checked := True;
 end;
 
 procedure TFormFileAnalyzer.ListViewFileListMouseDown(Sender: TObject;
